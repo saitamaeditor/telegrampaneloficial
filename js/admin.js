@@ -36,7 +36,7 @@ async function entrar() {
   document.getElementById('estado').innerHTML = `
     <span class="${e.e2 ? 'ok' : ''}">IDrive e2 ${e.e2 ? 'conectado' : 'sin configurar'}</span>
     <span class="${e.tmdb ? 'ok' : ''}">TMDB ${e.tmdb ? 'conectado' : 'sin configurar'}</span>`;
-  abrirPestana('catalogo');
+  abrirPestana('resumen');
 }
 
 document.getElementById('pestanas').addEventListener('click', (ev) => {
@@ -47,7 +47,7 @@ document.getElementById('pestanas').addEventListener('click', (ev) => {
 function abrirPestana(nombre) {
   for (const b of document.querySelectorAll('[data-pestana]')) b.classList.toggle('activo', b.dataset.pestana === nombre);
   contenido.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
-  const fn = { catalogo: verCatalogo, anadir: verAnadir, almacenamiento: verAlmacenamiento, notificaciones: verNotificaciones, usuarios: verUsuarios }[nombre];
+  const fn = { resumen: verResumen, ajustes: verAjustes, catalogo: verCatalogo, anadir: verAnadir, almacenamiento: verAlmacenamiento, notificaciones: verNotificaciones, usuarios: verUsuarios }[nombre];
   fn().catch((err) => (contenido.innerHTML = `<div class="vacio"><h2>Error</h2><p>${esc(err.message)}</p></div>`));
 }
 
@@ -169,7 +169,13 @@ async function verCatalogo() {
   contenido.innerHTML = `
     <div class="contenido-cab">
       <h1>Catálogo</h1>
-      <input class="entrada" id="filtro" placeholder="Filtrar…" style="max-width:260px" />
+      <input class="entrada" id="filtro" placeholder="Filtrar…" style="max-width:220px" />
+      <select class="entrada" id="filtro-tipo" style="max-width:190px">
+        <option value="">Todo (${lista.length})</option>
+        ${Object.entries({ pelicula: 'Películas', serie: 'Series', documental: 'Documentales', docuserie: 'Docuseries' }).map(([k, n]) => `<option value="cat:${k}">${n} (${lista.filter((t) => t.categoria === k).length})</option>`).join('')}
+        <option value="sin-video">Sin vídeo (${lista.filter((t) => !t.disponible).length})</option>
+        <option value="destacado">★ Destacados (${lista.filter((t) => t.destacado).length})</option>
+      </select>
       <button class="btn btn-primario btn-chico" id="escanear">Buscar contenido nuevo</button>
     </div>
     <p class="texto-3" id="escaneo-info" style="margin:-8px 0 14px;font-size:13px"></p>
@@ -179,14 +185,15 @@ async function verCatalogo() {
           <thead><tr><th></th><th>Título</th><th>Tipo</th><th>Año</th><th>Plataformas</th><th>Vídeos</th><th class="min"></th></tr></thead>
           <tbody>
             ${lista.map((t) => `
-              <tr data-id="${t.id}" data-texto="${esc(t.titulo.toLowerCase())}">
+              <tr data-id="${t.id}" data-texto="${esc(t.titulo.toLowerCase())}" data-cat="${t.categoria}" data-video="${t.disponible ? 1 : 0}" data-destacado="${t.destacado ? 1 : 0}">
                 <td class="min">${t.poster ? `<img class="mini-poster" src="${esc(t.poster)}" alt="" loading="lazy" />` : '<div class="mini-poster"></div>'}</td>
-                <td><b>${esc(t.titulo)}</b></td>
-                <td>${t.tipo === 'serie' ? 'Serie' : 'Película'}</td>
+                <td><b>${esc(t.titulo)}</b>${t.destacado ? ' <span class="pildora destacada" title="Sale en grande en la portada">★ Destacado</span>' : ''}</td>
+                <td>${{ pelicula: 'Película', serie: 'Serie', documental: 'Documental', docuserie: 'Docuserie' }[t.categoria] ?? (t.tipo === 'serie' ? 'Serie' : 'Película')}</td>
                 <td>${esc(t.anio ?? '')}</td>
                 <td>${t.plataformasVistas?.length ? t.plataformasVistas.map((p) => `<span class="pildora medio">${esc(nombrePlataforma(p))}</span>`).join(" ") : '<span class="texto-3">—</span>'}</td>
                 <td>${estadoVideos(t)}</td>
                 <td class="min">
+                  <button class="btn btn-secundario btn-chico ${t.destacado ? 'activo-destacado' : ''}" data-accion="destacar" title="${t.destacado ? 'Quitar de destacados' : 'Sacar en grande en la portada'}">${t.destacado ? '★' : '☆'}</button>
                   <button class="btn btn-primario btn-chico" data-accion="videos">Vídeos</button>
                   <button class="btn btn-secundario btn-chico" data-accion="editar">Editar</button>
                   ${t.tmdbId ? '<button class="btn btn-secundario btn-chico" data-accion="refrescar">TMDB</button>' : ''}
@@ -221,16 +228,31 @@ async function verCatalogo() {
   };
 
   const filtro = document.getElementById('filtro');
-  filtro.oninput = () => {
+  const filtroTipo = document.getElementById('filtro-tipo');
+  const filtrar = () => {
     const q = filtro.value.toLowerCase();
-    for (const tr of contenido.querySelectorAll('tbody tr')) tr.hidden = !tr.dataset.texto.includes(q);
+    const f = filtroTipo.value;
+    for (const tr of contenido.querySelectorAll('tbody tr')) {
+      const pasa = !f || (f.startsWith('cat:') ? tr.dataset.cat === f.slice(4) : f === 'sin-video' ? tr.dataset.video === '0' : tr.dataset.destacado === '1');
+      tr.hidden = !pasa || !tr.dataset.texto.includes(q);
+    }
   };
+  filtro.oninput = filtrar;
+  filtroTipo.onchange = filtrar;
 
   contenido.querySelector('tbody')?.addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-accion]');
     if (!b) return;
     const id = b.closest('tr').dataset.id;
     const t = lista.find((x) => x.id === id);
+    if (b.dataset.accion === 'destacar') {
+      try {
+        await api(`/admin/titulos/${id}`, { metodo: 'PATCH', cuerpo: { destacado: !t.destacado } });
+        avisar(t.destacado ? 'Quitado de destacados' : '★ Destacado: saldrá en grande en la portada');
+        verCatalogo();
+      } catch (err) { avisar(err.message, true); }
+      return;
+    }
     if (b.dataset.accion === 'videos') dialogoVideos(t);
     if (b.dataset.accion === 'editar') dialogoEditar(t);
     if (b.dataset.accion === 'refrescar') {
@@ -488,6 +510,120 @@ async function verAnadir() {
 }
 
 // ---------- Almacenamiento ----------
+// ---------- Resumen ----------
+async function verResumen() {
+  const r = await api('/admin/resumen');
+  const fecha = (f) => (f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  const c = r.catalogo;
+  const cifra = (num, txt, extra = '') => `<div class="cifra"><b>${num}</b><span>${txt}</span>${extra}</div>`;
+  const servicio = (ok, nombre, detalle = '') => `<div class="servicio"><span class="${ok ? 'ok' : ''}"></span><b>${nombre}</b><small>${detalle}</small></div>`;
+  const top = (lista, unidad) => lista.length
+    ? `<ol class="top">${lista.map((x) => `<li><span>${esc(x.titulo)}</span><b>${x.total} ${unidad}</b></li>`).join('')}</ol>`
+    : '<p class="texto-3">Todavía no hay datos.</p>';
+  const imp = r.servicios.importador;
+  contenido.innerHTML = `
+    <div class="contenido-cab"><h1>Resumen</h1><span class="texto-3">Versión publicada: ${esc(r.servicios.version)}</span></div>
+
+    <div class="cifras">
+      ${cifra(c.total, 'títulos', `<small>${c.porCategoria.pelicula} películas · ${c.porCategoria.serie} series · ${c.porCategoria.documental} documentales · ${c.porCategoria.docuserie} docuseries</small>`)}
+      ${cifra(r.almacenamiento ? r.almacenamiento.videos : '—', 'vídeos en e2', r.almacenamiento ? `<small>${tamHumano(r.almacenamiento.bytes)} ocupados</small>` : '<small>No se pudo consultar</small>')}
+      ${cifra(r.usuarios.total, 'usuarios', `<small>${r.usuarios.nuevos7} nuevos esta semana · ${r.usuarios.activos24} activos hoy</small>`)}
+      ${cifra(r.usuarios.dispositivos, 'dispositivos conectados', `<small>${c.destacados} títulos destacados</small>`)}
+    </div>
+
+    <div class="rejilla-2">
+      <div class="caja">
+        <h2>Estado</h2>
+        <div class="servicios">
+          ${servicio(r.servicios.e2, 'IDrive e2', r.servicios.e2 ? 'Conectado' : 'Sin configurar')}
+          ${servicio(r.servicios.tmdb, 'TMDB', r.servicios.tmdb ? 'Conectado' : 'Sin configurar')}
+          ${servicio(r.servicios.telegram, 'Avisos de Telegram', r.servicios.telegram ? 'Activos' : 'Apagados o sin configurar')}
+          ${servicio(imp.cadaMinutos > 0, 'Importador automático', imp.cadaMinutos ? `Cada ${imp.cadaMinutos} min · última revisión ${fecha(imp.fecha)}` : 'Apagado en este servidor')}
+        </div>
+        ${imp.errores?.length ? `<p class="texto-3" style="margin-top:12px">⚠ Vídeos sin importar: ${imp.errores.map((e) => esc(e.key ?? e.error)).join(', ')}</p>` : ''}
+      </div>
+      <div class="caja">
+        <h2>Pendiente</h2>
+        <p class="texto-2" style="margin-bottom:10px">${c.sinVideo.length ? `${c.sinVideo.length} títulos todavía no tienen vídeo:` : 'Todos los títulos tienen vídeo. 👌'}</p>
+        ${c.sinVideo.length ? `<p>${c.sinVideo.slice(0, 12).map((t) => `<span class="pildora no">${esc(t.titulo)}</span>`).join(' ')}${c.sinVideo.length > 12 ? ` <span class="texto-3">y ${c.sinVideo.length - 12} más</span>` : ''}</p>` : ''}
+        ${c.episodios ? `<p class="texto-3" style="margin-top:12px">Episodios con vídeo: ${c.episodiosConVideo} de ${c.episodios}</p>` : ''}
+      </div>
+      <div class="caja">
+        <h2>Lo más guardado en «Mi lista»</h2>
+        ${top(r.usuarios.enListas, 'listas')}
+      </div>
+      <div class="caja">
+        <h2>Lo más visto</h2>
+        ${top(r.usuarios.masVistos, 'usuarios')}
+      </div>
+    </div>
+
+    <div class="caja">
+      <h2>Últimos añadidos</h2>
+      <div class="ultimos">
+        ${c.ultimos.map((t) => `<div class="ultimo">${t.poster ? `<img src="${esc(t.poster)}" alt="" loading="lazy" />` : '<div></div>'}<b>${esc(t.titulo)}</b><small>${fecha(t.creado)}</small></div>`).join('') || '<p class="texto-3">El catálogo está vacío.</p>'}
+      </div>
+    </div>`;
+}
+
+// ---------- Ajustes: aviso en la web y copia de seguridad ----------
+async function verAjustes() {
+  const a = await api('/admin/aviso');
+  contenido.innerHTML = `
+    <div class="contenido-cab"><h1>Ajustes</h1></div>
+
+    <div class="caja">
+      <h2>Aviso en la web</h2>
+      <p class="texto-2" style="margin-bottom:14px">Un mensaje que sale arriba en morvehtv.es (portada y catálogo): novedades, un estreno, una parada por mantenimiento… Cada visitante puede cerrarlo, y vuelve a salir si cambias el texto.</p>
+      <form id="form-aviso" style="display:grid;gap:12px">
+        <label class="campo"><span>Texto (máximo 240 caracteres)</span><textarea name="texto" maxlength="240" style="min-height:70px">${esc(a.texto ?? '')}</textarea></label>
+        <div class="fila-form">
+          <label class="campo"><span>Tipo</span>
+            <select name="tipo">
+              <option value="info" ${a.tipo === 'info' ? 'selected' : ''}>ℹ️ Información (azul)</option>
+              <option value="novedad" ${a.tipo === 'novedad' ? 'selected' : ''}>🎉 Novedad (verde)</option>
+              <option value="importante" ${a.tipo === 'importante' ? 'selected' : ''}>⚠️ Importante (rojo)</option>
+            </select>
+          </label>
+          <label class="campo"><span>Enlace opcional (https://…)</span><input name="enlace" value="${esc(a.enlace ?? '')}" placeholder="https://t.me/…" /></label>
+        </div>
+        <label class="casilla"><input type="checkbox" name="activo" ${a.activo ? 'checked' : ''} /> Mostrar el aviso en la web</label>
+        <div><button class="btn btn-primario">Guardar aviso</button></div>
+      </form>
+    </div>
+
+    <div class="caja">
+      <h2>Copia de seguridad</h2>
+      <p class="texto-2" style="margin-bottom:14px">Descarga un archivo con todo lo que guarda MorvehTV: el catálogo, las cuentas de los usuarios (con sus contraseñas cifradas), sus listas y los ajustes. Los vídeos no van incluidos: siguen en tu bucket de e2. Guárdala en un sitio seguro y no la compartas.</p>
+      <button class="btn btn-secundario" id="descargar-copia">Descargar copia (.json)</button>
+    </div>`;
+
+  document.getElementById('form-aviso').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget;
+    try {
+      const r = await api('/admin/aviso', { metodo: 'PUT', cuerpo: { texto: f.texto.value, tipo: f.tipo.value, enlace: f.enlace.value.trim(), activo: f.activo.checked } });
+      avisar(r.activo ? 'Aviso publicado en la web' : 'Aviso guardado (no se muestra)');
+    } catch (err) {
+      avisar(err.message, true);
+    }
+  };
+  document.getElementById('descargar-copia').onclick = async (ev) => {
+    ev.currentTarget.disabled = true;
+    try {
+      const r = await fetch(`${window.FOTOGRAMA_API ?? ''}/api/admin/copia`, { headers: { 'x-api-key': clave } });
+      if (!r.ok) throw new Error(`Error ${r.status}`);
+      const url = URL.createObjectURL(await r.blob());
+      const a = Object.assign(document.createElement('a'), { href: url, download: `morvehtv-copia-${new Date().toISOString().slice(0, 10)}.json` });
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      avisar(err.message, true);
+    }
+    ev.currentTarget.disabled = false;
+  };
+}
+
 // ---------- Usuarios registrados ----------
 async function verUsuarios() {
   const lista = await api('/admin/usuarios');

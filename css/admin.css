@@ -86,3 +86,27 @@
 /* Notificaciones */
 .pasos { margin: 0 0 14px 18px; display: grid; gap: 4px; color: var(--texto-2); font-size: 14px; }
 .pasos code, .caja code { background: var(--fondo-3, #2b2b2b); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+/* Resumen */
+.cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.cifra { padding: 18px; border-radius: 14px; background: var(--fondo-2); border: 1px solid var(--borde); display: grid; gap: 2px; }
+.cifra b { font-size: 30px; font-weight: 800; color: var(--texto); }
+.cifra span { color: var(--texto-2); font-weight: 600; }
+.cifra small { color: var(--texto-3); font-size: 12.5px; margin-top: 4px; }
+.rejilla-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0 20px; }
+.servicios { display: grid; gap: 10px; }
+.servicio { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 10px; }
+.servicio span { width: 9px; height: 9px; border-radius: 50%; background: var(--peligro); }
+.servicio span.ok { background: var(--ok); }
+.servicio small { color: var(--texto-3); text-align: right; }
+.top { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.top li { display: flex; justify-content: space-between; gap: 10px; }
+.top li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top li b { color: var(--texto-3); font-weight: 600; white-space: nowrap; font-size: 13px; }
+.ultimos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px; }
+.ultimo { display: grid; gap: 4px; font-size: 13px; }
+.ultimo img, .ultimo > div { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; background: var(--fondo); }
+.ultimo small { color: var(--texto-3); }
+/* Catálogo: destacados */
+.pildora.destacada { background: rgba(245, 197, 24, 0.16); color: #f5c518; }
+.btn.activo-destacado { color: #f5c518; }
