@@ -551,7 +551,7 @@ async function verNotificaciones() {
     <div class="caja">
       <h2>${t.chatId ? '4' : '3'}. Avisos</h2>
       <form class="fila-form" id="form-downloader" style="margin-bottom:14px">
-        <label class="campo"><span>Código Downloader de la app (botón «📲 App · Código Downloader»; vacío = sin botón)</span><input name="downloader" inputmode="numeric" value="${esc(t.downloader ?? '')}" /></label>
+        <label class="campo"><span>Código Downloader de la app (botón «📲 APP MOVIL/TV»; vacío = sin botón)</span><input name="downloader" inputmode="numeric" value="${esc(t.downloader ?? '')}" /></label>
         <button class="btn btn-secundario">Guardar código</button>
       </form>
       <label class="casilla" style="margin-bottom:14px"><input type="checkbox" id="activo" ${t.activo ? 'checked' : ''} ${t.configurado ? '' : 'disabled'} /> Avisar en Telegram de cada contenido nuevo</label>
