@@ -179,13 +179,21 @@ async function verCatalogo() {
       <button class="btn btn-primario btn-chico" id="escanear">Buscar contenido nuevo</button>
     </div>
     <p class="texto-3" id="escaneo-info" style="margin:-8px 0 14px;font-size:13px"></p>
+    <div class="lote" id="lote" hidden>
+      <b id="lote-total"></b>
+      <button class="btn btn-secundario btn-chico" data-lote="destacar">★ Destacar</button>
+      <button class="btn btn-secundario btn-chico" data-lote="quitar-destacado">☆ Quitar destacado</button>
+      <button class="btn btn-peligro btn-chico" data-lote="borrar">Borrar</button>
+      <button class="btn btn-secundario btn-chico" data-lote="ninguno">Desmarcar</button>
+    </div>
     ${lista.length ? `
       <div class="caja tabla-scroll">
         <table class="tabla">
-          <thead><tr><th></th><th>Título</th><th>Tipo</th><th>Año</th><th>Plataformas</th><th>Vídeos</th><th class="min"></th></tr></thead>
+          <thead><tr><th class="min"><input type="checkbox" id="marcar-todos" aria-label="Marcar todos" /></th><th></th><th>Título</th><th>Tipo</th><th>Año</th><th>Plataformas</th><th>Vídeos</th><th class="min"></th></tr></thead>
           <tbody>
             ${lista.map((t) => `
               <tr data-id="${t.id}" data-texto="${esc(t.titulo.toLowerCase())}" data-cat="${t.categoria}" data-video="${t.disponible ? 1 : 0}" data-destacado="${t.destacado ? 1 : 0}">
+                <td class="min"><input type="checkbox" class="marcar" value="${t.id}" aria-label="Marcar ${esc(t.titulo)}" /></td>
                 <td class="min">${t.poster ? `<img class="mini-poster" src="${esc(t.poster)}" alt="" loading="lazy" />` : '<div class="mini-poster"></div>'}</td>
                 <td><b>${esc(t.titulo)}</b>${t.destacado ? ' <span class="pildora destacada" title="Sale en grande en la portada">★ Destacado</span>' : ''}</td>
                 <td>${{ pelicula: 'Película', serie: 'Serie', documental: 'Documental', docuserie: 'Docuserie' }[t.categoria] ?? (t.tipo === 'serie' ? 'Serie' : 'Película')}</td>
@@ -239,6 +247,38 @@ async function verCatalogo() {
   };
   filtro.oninput = filtrar;
   filtroTipo.onchange = filtrar;
+
+  // Selección múltiple: acciones sobre varios títulos a la vez
+  const lote = document.getElementById('lote');
+  const marcados = () => [...contenido.querySelectorAll('.marcar:checked')].map((c) => c.value);
+  const pintarLote = () => {
+    const n = marcados().length;
+    lote.hidden = !n;
+    document.getElementById('lote-total').textContent = `${n} ${n === 1 ? 'marcado' : 'marcados'}`;
+  };
+  contenido.addEventListener('change', (ev) => {
+    if (ev.target.id === 'marcar-todos') {
+      for (const c of contenido.querySelectorAll('tbody tr:not([hidden]) .marcar')) c.checked = ev.target.checked;
+    }
+    if (ev.target.matches('.marcar, #marcar-todos')) pintarLote();
+  });
+  lote.onclick = async (ev) => {
+    const b = ev.target.closest('[data-lote]');
+    if (!b) return;
+    const ids = marcados();
+    if (b.dataset.lote === 'ninguno') {
+      for (const c of contenido.querySelectorAll('.marcar, #marcar-todos')) c.checked = false;
+      return pintarLote();
+    }
+    if (b.dataset.lote === 'borrar' && !confirm(`¿Borrar ${ids.length} títulos del catálogo? Los vídeos se quedan en el bucket.`)) return;
+    try {
+      await api('/admin/titulos/lote', { metodo: 'POST', cuerpo: { ids, accion: b.dataset.lote } });
+      avisar({ destacar: 'Destacados', 'quitar-destacado': 'Quitados de destacados', borrar: 'Borrados' }[b.dataset.lote] + `: ${ids.length}`);
+      verCatalogo();
+    } catch (err) {
+      avisar(err.message, true);
+    }
+  };
 
   contenido.querySelector('tbody')?.addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-accion]');
@@ -511,6 +551,23 @@ async function verAnadir() {
 
 // ---------- Almacenamiento ----------
 // ---------- Resumen ----------
+// Gráfica de barras de las reproducciones por día (SVG, sin librerías)
+function grafica(dias) {
+  const max = Math.max(1, ...dias.map((d) => d.total));
+  const ancho = 100 / dias.length;
+  const etiqueta = (d) => new Date(`${d.dia}T12:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return `
+    <div class="grafica">
+      <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Reproducciones por día">
+        ${dias.map((d, i) => {
+          const alto = (d.total / max) * 36;
+          return `<rect x="${i * ancho + ancho * 0.15}" y="${40 - alto}" width="${ancho * 0.7}" height="${Math.max(alto, 0.4)}" rx="0.6"><title>${etiqueta(d)}: ${d.total}</title></rect>`;
+        }).join('')}
+      </svg>
+      <div class="grafica-eje"><span>${etiqueta(dias[0])}</span><span>máx. ${max}/día</span><span>Hoy</span></div>
+    </div>`;
+}
+
 async function verResumen() {
   const r = await api('/admin/resumen');
   const fecha = (f) => (f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—');
@@ -529,6 +586,12 @@ async function verResumen() {
       ${cifra(r.almacenamiento ? r.almacenamiento.videos : '—', 'vídeos en e2', r.almacenamiento ? `<small>${tamHumano(r.almacenamiento.bytes)} ocupados</small>` : '<small>No se pudo consultar</small>')}
       ${cifra(r.usuarios.total, 'usuarios', `<small>${r.usuarios.nuevos7} nuevos esta semana · ${r.usuarios.activos24} activos hoy</small>`)}
       ${cifra(r.usuarios.dispositivos, 'dispositivos conectados', `<small>${c.destacados} títulos destacados</small>`)}
+      ${cifra(r.reproducciones.total30, 'reproducciones (30 días)', `<small>${r.reproducciones.hoy} hoy</small>`)}
+    </div>
+
+    <div class="caja">
+      <h2>Reproducciones de los últimos 30 días</h2>
+      ${grafica(r.reproducciones.dias)}
     </div>
 
     <div class="rejilla-2">
@@ -553,8 +616,14 @@ async function verResumen() {
         ${top(r.usuarios.enListas, 'listas')}
       </div>
       <div class="caja">
-        <h2>Lo más visto</h2>
-        ${top(r.usuarios.masVistos, 'usuarios')}
+        <h2>Lo más reproducido</h2>
+        ${top(r.reproducciones.top, 'veces')}
+      </div>
+      <div class="caja">
+        <h2>Actividad reciente</h2>
+        ${r.actividad.length ? `<ul class="actividad">${r.actividad.map((a) => `
+          <li><span class="act-icono">${{ usuario: '👤', importado: '📥', titulo: '🎬', aviso: '📣', error: '⚠️' }[a.tipo] ?? '•'}</span><span>${esc(a.texto)}</span><small>${fecha(a.fecha)}</small></li>`).join('')}</ul>`
+          : '<p class="texto-3">Aquí irán apareciendo las cuentas nuevas, lo importado, los cambios del catálogo…</p>'}
       </div>
     </div>
 
@@ -625,6 +694,21 @@ async function verAjustes() {
 }
 
 // ---------- Usuarios registrados ----------
+// Ficha de un usuario: dispositivos, su lista y lo que está viendo
+async function fichaUsuario(id) {
+  let u;
+  try { u = await api(`/admin/usuarios/${id}`); } catch (err) { return avisar(err.message, true); }
+  const fecha = (f) => (f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  abrirDialogo(u.nombre, `
+    <p class="texto-2">${esc(u.email)} · alta ${fecha(u.creado)} · última vez ${fecha(u.ultimo)}${u.suspendido ? ' · <span class="pildora medio">Suspendida</span>' : ''}</p>
+    <h3 class="ficha-titulo">Dispositivos (${u.sesiones.length})</h3>
+    ${u.sesiones.length ? `<ul class="ficha-lista">${u.sesiones.map((s) => `<li><span>${esc(s.dispositivo)}</span><small>activo ${fecha(s.ultimo)}</small></li>`).join('')}</ul>` : '<p class="texto-3">Ninguno con la sesión abierta.</p>'}
+    <h3 class="ficha-titulo">En su lista (${u.lista.length})</h3>
+    ${u.lista.length ? `<p>${u.lista.map((t) => `<span class="pildora no">${esc(t.titulo)}</span>`).join(' ')}</p>` : '<p class="texto-3">Su lista está vacía.</p>'}
+    <h3 class="ficha-titulo">Viendo (${u.viendo.length})</h3>
+    ${u.viendo.length ? `<ul class="ficha-lista">${u.viendo.map((v) => `<li><span>${esc(v.titulo)}</span><small>${v.porcentaje != null ? `${v.porcentaje}% · ` : ''}${fecha(v.fecha)}</small></li>`).join('')}</ul>` : '<p class="texto-3">Todavía no ha visto nada.</p>'}`);
+}
+
 async function verUsuarios() {
   const lista = await api('/admin/usuarios');
   const fecha = (f) => (f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—');
@@ -632,6 +716,7 @@ async function verUsuarios() {
     <div class="contenido-cab">
       <h1>Usuarios</h1>
       <span class="texto-2">${lista.length} ${lista.length === 1 ? 'cuenta' : 'cuentas'}</span>
+      <input class="entrada" id="buscar-usuario" placeholder="Buscar por nombre o correo…" style="max-width:280px" />
     </div>
     <p class="texto-2" style="margin:-8px 0 20px">Cualquiera puede crear una cuenta en la web o en la app. Cada cuenta guarda en privado su lista, lo que está viendo y sus plataformas elegidas. Las contraseñas se guardan cifradas y no se pueden ver: si alguien la olvida, pulsa «Nueva contraseña» y pásale la provisional.</p>
     ${lista.length ? `
@@ -640,8 +725,8 @@ async function verUsuarios() {
           <thead><tr><th>Nombre</th><th>Correo</th><th>Dispositivos</th><th>En su lista</th><th>Vistos</th><th>Alta</th><th>Última vez</th><th class="min"></th></tr></thead>
           <tbody>
             ${lista.sort((a, b) => (b.ultimo ?? b.creado).localeCompare(a.ultimo ?? a.creado)).map((u) => `
-              <tr>
-                <td><b>${esc(u.nombre)}</b></td>
+              <tr data-texto="${esc(`${u.nombre} ${u.email}`.toLowerCase())}">
+                <td><b>${esc(u.nombre)}</b>${u.suspendido ? ' <span class="pildora medio">Suspendida</span>' : ''}</td>
                 <td>${esc(u.email)}</td>
                 <td class="min">${u.dispositivos ?? 0}</td>
                 <td class="min">${u.enLista}</td>
@@ -649,7 +734,9 @@ async function verUsuarios() {
                 <td class="min texto-3">${fecha(u.creado)}</td>
                 <td class="min texto-3">${fecha(u.ultimo)}</td>
                 <td class="min">
+                  <button class="btn btn-primario btn-chico" data-ver="${esc(u.id)}">Ver</button>
                   <button class="btn btn-secundario btn-chico" data-restablecer="${esc(u.id)}" data-email="${esc(u.email)}">Nueva contraseña</button>
+                  <button class="btn btn-secundario btn-chico" data-suspender="${esc(u.id)}" data-email="${esc(u.email)}" data-estado="${u.suspendido ? 1 : 0}">${u.suspendido ? 'Reactivar' : 'Suspender'}</button>
                   <button class="btn btn-peligro btn-chico" data-borrar="${esc(u.id)}" data-email="${esc(u.email)}">Borrar</button>
                 </td>
               </tr>`).join('')}
@@ -657,7 +744,26 @@ async function verUsuarios() {
         </table>
       </div>` : '<div class="vacio"><h2>Todavía no hay usuarios</h2><p>Las cuentas aparecerán aquí en cuanto alguien se registre.</p></div>'}`;
 
+  const buscar = document.getElementById('buscar-usuario');
+  buscar.oninput = () => {
+    const q = buscar.value.toLowerCase().trim();
+    for (const tr of contenido.querySelectorAll('tbody tr')) tr.hidden = !tr.dataset.texto.includes(q);
+  };
+
   contenido.querySelector('tbody')?.addEventListener('click', async (ev) => {
+    const ver = ev.target.closest('[data-ver]');
+    if (ver) return fichaUsuario(ver.dataset.ver);
+    const sus = ev.target.closest('[data-suspender]');
+    if (sus) {
+      const suspender = sus.dataset.estado !== '1';
+      if (suspender && !confirm(`¿Suspender la cuenta ${sus.dataset.email}? No podrá entrar y se cerrarán todas sus sesiones.`)) return;
+      try {
+        await api(`/admin/usuarios/${sus.dataset.suspender}`, { metodo: 'PATCH', cuerpo: { suspendido: suspender } });
+        avisar(suspender ? 'Cuenta suspendida' : 'Cuenta reactivada');
+        verUsuarios();
+      } catch (err) { avisar(err.message, true); }
+      return;
+    }
     // Para quien ha olvidado su contraseña: se le pone una provisional para que entre y la cambie
     const r = ev.target.closest('[data-restablecer]');
     if (r) {
