@@ -151,12 +151,17 @@ function zonaSubida(contenedor, alTerminar) {
 }
 
 // ---------- Catálogo ----------
+// Con vídeo / sin vídeo y, si ya está cifrado con Cifrar.bat, el candado
 function estadoVideos(t) {
-  if (t.tipo === 'pelicula') return t.videoKey ? '<span class="pildora ok">Con vídeo</span>' : '<span class="pildora no">Sin vídeo</span>';
+  if (t.tipo === 'pelicula') {
+    if (!t.videoKey) return '<span class="pildora no">Sin vídeo</span>';
+    return `<span class="pildora ok">Con vídeo</span> ${t.hls ? '<span class="pildora cifrado" title="Cifrado con AES-128">🔒 Cifrado</span>' : '<span class="pildora no" title="Ejecuta Cifrar.bat">Sin cifrar</span>'}`;
+  }
   const eps = (t.temporadas ?? []).flatMap((s) => s.episodios);
   const con = eps.filter((e) => e.videoKey).length;
+  const cifrados = eps.filter((e) => e.videoKey && e.hls).length;
   const cls = con === 0 ? 'no' : con === eps.length ? 'ok' : 'medio';
-  return `<span class="pildora ${cls}">${con}/${eps.length} episodios</span>`;
+  return `<span class="pildora ${cls}">${con}/${eps.length} episodios</span>${con ? ` <span class="pildora ${cifrados === con ? 'cifrado' : 'no'}">🔒 ${cifrados}/${con}</span>` : ''}`;
 }
 
 // Plataformas de películas y cadenas originales de series

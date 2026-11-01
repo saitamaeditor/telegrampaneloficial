@@ -127,3 +127,5 @@
 .ficha-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ficha-lista li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .ficha-lista small { color: var(--texto-3); white-space: nowrap; }
+
+.pildora.cifrado { background: rgba(79, 140, 255, 0.15); color: #7aa7ff; }
