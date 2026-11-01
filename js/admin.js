@@ -47,7 +47,7 @@ document.getElementById('pestanas').addEventListener('click', (ev) => {
 function abrirPestana(nombre) {
   for (const b of document.querySelectorAll('[data-pestana]')) b.classList.toggle('activo', b.dataset.pestana === nombre);
   contenido.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
-  const fn = { catalogo: verCatalogo, anadir: verAnadir, almacenamiento: verAlmacenamiento, notificaciones: verNotificaciones }[nombre];
+  const fn = { catalogo: verCatalogo, anadir: verAnadir, almacenamiento: verAlmacenamiento, notificaciones: verNotificaciones, usuarios: verUsuarios }[nombre];
   fn().catch((err) => (contenido.innerHTML = `<div class="vacio"><h2>Error</h2><p>${esc(err.message)}</p></div>`));
 }
 
@@ -480,6 +480,48 @@ async function verAnadir() {
 }
 
 // ---------- Almacenamiento ----------
+// ---------- Usuarios registrados ----------
+async function verUsuarios() {
+  const lista = await api('/admin/usuarios');
+  const fecha = (f) => (f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  contenido.innerHTML = `
+    <div class="contenido-cab">
+      <h1>Usuarios</h1>
+      <span class="texto-2">${lista.length} ${lista.length === 1 ? 'cuenta' : 'cuentas'}</span>
+    </div>
+    <p class="texto-2" style="margin:-8px 0 20px">Cualquiera puede crear una cuenta en la web o en la app. Cada cuenta guarda en privado su lista, lo que está viendo y sus plataformas elegidas. Las contraseñas se guardan cifradas y no se pueden ver.</p>
+    ${lista.length ? `
+      <div class="caja tabla-scroll">
+        <table class="tabla">
+          <thead><tr><th>Nombre</th><th>Correo</th><th>En su lista</th><th>Vistos</th><th>Alta</th><th>Última vez</th><th class="min"></th></tr></thead>
+          <tbody>
+            ${lista.sort((a, b) => (b.ultimo ?? b.creado).localeCompare(a.ultimo ?? a.creado)).map((u) => `
+              <tr>
+                <td><b>${esc(u.nombre)}</b></td>
+                <td>${esc(u.email)}</td>
+                <td class="min">${u.enLista}</td>
+                <td class="min">${u.vistos}</td>
+                <td class="min texto-3">${fecha(u.creado)}</td>
+                <td class="min texto-3">${fecha(u.ultimo)}</td>
+                <td class="min"><button class="btn btn-peligro btn-chico" data-borrar="${esc(u.id)}" data-email="${esc(u.email)}">Borrar</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="vacio"><h2>Todavía no hay usuarios</h2><p>Las cuentas aparecerán aquí en cuanto alguien se registre.</p></div>'}`;
+
+  contenido.querySelector('tbody')?.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-borrar]');
+    if (!b || !confirm(`¿Borrar la cuenta ${b.dataset.email}? Perderá su lista y su progreso.`)) return;
+    try {
+      await api(`/admin/usuarios/${b.dataset.borrar}`, { metodo: 'DELETE' });
+      avisar('Cuenta borrada');
+      verUsuarios();
+    } catch (err) {
+      avisar(err.message, true);
+    }
+  });
+}
+
 // ---------- Notificaciones en Telegram ----------
 let temasVistos = []; // temas encontrados con «Buscar temas»
 

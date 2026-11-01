@@ -2,10 +2,12 @@
 // antes de cargar este script con la URL de la API (p. ej. https://api.mi-web.com).
 const BASE = (window.FOTOGRAMA_API ?? '').replace(/\/$/, '');
 
-export async function api(ruta, { metodo = 'GET', cuerpo, clave } = {}) {
+// `clave`: ADMIN_KEY del panel; `token`: sesión de un espectador con cuenta
+export async function api(ruta, { metodo = 'GET', cuerpo, clave, token } = {}) {
   const headers = {};
   if (cuerpo !== undefined) headers['Content-Type'] = 'application/json';
   if (clave) headers['x-api-key'] = clave;
+  if (token) headers.Authorization = `Bearer ${token}`;
   const r = await fetch(`${BASE}/api${ruta}`, {
     method: metodo,
     headers,
