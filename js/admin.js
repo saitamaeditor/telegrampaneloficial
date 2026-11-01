@@ -164,20 +164,19 @@ function estadoVideos(t) {
   return `<span class="pildora ${cls}">${con}/${eps.length} episodios</span>${con ? ` <span class="pildora ${cifrados === con ? 'cifrado' : 'no'}">🔒 ${cifrados}/${con}</span>` : ''}`;
 }
 
-// Plataformas de películas y cadenas originales de series
-const plataformas = { pelicula: [], serie: [] };
-const nombrePlataforma = (id) => [...plataformas.pelicula, ...plataformas.serie].find((p) => p.id === id)?.nombre ?? id;
+// Las seis categorías del catálogo (salen del tipo y de los géneros «Documental» y «Anime»)
+const CATEGORIAS = { pelicula: 'Película', serie: 'Serie', documental: 'Documental', docuserie: 'Docuserie', 'anime-pelicula': 'Película anime', 'anime-serie': 'Serie anime' };
+const CATEGORIAS_PLURAL = { pelicula: 'Películas', serie: 'Series', documental: 'Documentales', docuserie: 'Docuseries', 'anime-pelicula': 'Películas anime', 'anime-serie': 'Series anime' };
 
 async function verCatalogo() {
   const lista = await api('/admin/titulos');
-  [plataformas.pelicula, plataformas.serie] = await Promise.all([api('/plataformas'), api('/plataformas?tipo=serie')]);
   contenido.innerHTML = `
     <div class="contenido-cab">
       <h1>Catálogo</h1>
       <input class="entrada" id="filtro" placeholder="Filtrar…" style="max-width:220px" />
       <select class="entrada" id="filtro-tipo" style="max-width:190px">
         <option value="">Todo (${lista.length})</option>
-        ${Object.entries({ pelicula: 'Películas', serie: 'Series', documental: 'Documentales', docuserie: 'Docuseries' }).map(([k, n]) => `<option value="cat:${k}">${n} (${lista.filter((t) => t.categoria === k).length})</option>`).join('')}
+        ${Object.entries(CATEGORIAS_PLURAL).map(([k, n]) => `<option value="cat:${k}">${n} (${lista.filter((t) => t.categoria === k).length})</option>`).join('')}
         <option value="sin-video">Sin vídeo (${lista.filter((t) => !t.disponible).length})</option>
         <option value="destacado">★ Destacados (${lista.filter((t) => t.destacado).length})</option>
       </select>
@@ -194,16 +193,15 @@ async function verCatalogo() {
     ${lista.length ? `
       <div class="caja tabla-scroll">
         <table class="tabla">
-          <thead><tr><th class="min"><input type="checkbox" id="marcar-todos" aria-label="Marcar todos" /></th><th></th><th>Título</th><th>Tipo</th><th>Año</th><th>Plataformas</th><th>Vídeos</th><th class="min"></th></tr></thead>
+          <thead><tr><th class="min"><input type="checkbox" id="marcar-todos" aria-label="Marcar todos" /></th><th></th><th>Título</th><th>Categoría</th><th>Año</th><th>Vídeos</th><th class="min"></th></tr></thead>
           <tbody>
             ${lista.map((t) => `
               <tr data-id="${t.id}" data-texto="${esc(t.titulo.toLowerCase())}" data-cat="${t.categoria}" data-video="${t.disponible ? 1 : 0}" data-destacado="${t.destacado ? 1 : 0}">
                 <td class="min"><input type="checkbox" class="marcar" value="${t.id}" aria-label="Marcar ${esc(t.titulo)}" /></td>
                 <td class="min">${t.poster ? `<img class="mini-poster" src="${esc(t.poster)}" alt="" loading="lazy" />` : '<div class="mini-poster"></div>'}</td>
                 <td><b>${esc(t.titulo)}</b>${t.destacado ? ' <span class="pildora destacada" title="Sale en grande en la portada">★ Destacado</span>' : ''}</td>
-                <td>${{ pelicula: 'Película', serie: 'Serie', documental: 'Documental', docuserie: 'Docuserie' }[t.categoria] ?? (t.tipo === 'serie' ? 'Serie' : 'Película')}</td>
+                <td>${CATEGORIAS[t.categoria] ?? (t.tipo === 'serie' ? 'Serie' : 'Película')}</td>
                 <td>${esc(t.anio ?? '')}</td>
-                <td>${t.plataformasVistas?.length ? t.plataformasVistas.map((p) => `<span class="pildora medio">${esc(nombrePlataforma(p))}</span>`).join(" ") : '<span class="texto-3">—</span>'}</td>
                 <td>${estadoVideos(t)}</td>
                 <td class="min">
                   <button class="btn btn-secundario btn-chico ${t.destacado ? 'activo-destacado' : ''}" data-accion="destacar" title="${t.destacado ? 'Quitar de destacados' : 'Sacar en grande en la portada'}">${t.destacado ? '★' : '☆'}</button>
@@ -458,18 +456,22 @@ function dialogoEditar(t) {
       <label class="campo"><span>Géneros (separados por comas)</span><input name="generos" value="${esc((t.generos ?? []).join(', '))}" /></label>
       <label class="campo"><span>URL del cartel</span><input name="poster" value="${esc(t.poster ?? '')}" /></label>
       <label class="campo"><span>URL de la imagen de fondo</span><input name="fondo" value="${esc(t.fondo ?? '')}" /></label>
-      <div class="campo"><span>${t.tipo === 'serie' ? 'Cadenas originales' : 'Plataformas'}</span>
-        <div class="casillas">
-          ${plataformas[t.tipo === 'serie' ? 'serie' : 'pelicula'].map((p) => `<label class="casilla"><input type="checkbox" name="plataformas" value="${p.id}" ${(t.plataformasVistas ?? []).includes(p.id) ? 'checked' : ''} /> ${esc(p.nombre)}</label>`).join('')}
-        </div>
-      </div>
+      <label class="campo"><span>Categoría (dónde sale en la web y la app)</span>
+        <select name="categoria">
+          ${(t.tipo === 'serie' ? ['serie', 'docuserie', 'anime-serie'] : ['pelicula', 'documental', 'anime-pelicula'])
+            .map((k) => `<option value="${k}" ${t.categoria === k ? 'selected' : ''}>${CATEGORIAS_PLURAL[k]}</option>`).join('')}
+        </select>
+      </label>
       <div><button class="btn btn-primario">Guardar</button></div>
     </form>`);
   d.querySelector('form').onsubmit = async (ev) => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.currentTarget));
-    f.generos = f.generos.split(',').map((g) => g.trim()).filter(Boolean);
-    f.plataformas = new FormData(ev.currentTarget).getAll('plataformas');
+    // La categoría se guarda como género: «Documental» o «Anime» al principio, o ninguno
+    const generos = f.generos.split(',').map((g) => g.trim()).filter((g) => g && !/^(documental|documentary|anime)$/i.test(g));
+    const extra = { documental: 'Documental', docuserie: 'Documental', 'anime-pelicula': 'Anime', 'anime-serie': 'Anime' }[f.categoria];
+    f.generos = extra ? [extra, ...generos] : generos;
+    delete f.categoria;
     try { await api(`/admin/titulos/${t.id}`, { metodo: 'PATCH', cuerpo: f }); avisar('Guardado'); dialogo.close(); }
     catch (err) { avisar(err.message, true); }
   };
@@ -587,7 +589,7 @@ async function verResumen() {
     <div class="contenido-cab"><h1>Resumen</h1><span class="texto-3">Versión publicada: ${esc(r.servicios.version)}</span></div>
 
     <div class="cifras">
-      ${cifra(c.total, 'títulos', `<small>${c.porCategoria.pelicula} películas · ${c.porCategoria.serie} series · ${c.porCategoria.documental} documentales · ${c.porCategoria.docuserie} docuseries</small>`)}
+      ${cifra(c.total, 'títulos', `<small>${Object.entries(CATEGORIAS_PLURAL).map(([k, n]) => `${c.porCategoria[k] ?? 0} ${n.toLowerCase()}`).join(' · ')}</small>`)}
       ${cifra(r.almacenamiento ? r.almacenamiento.videos : '—', 'vídeos en e2', r.almacenamiento ? `<small>${tamHumano(r.almacenamiento.bytes)} ocupados</small>` : '<small>No se pudo consultar</small>')}
       ${cifra(r.usuarios.total, 'usuarios', `<small>${r.usuarios.nuevos7} nuevos esta semana · ${r.usuarios.activos24} activos hoy</small>`)}
       ${cifra(r.usuarios.dispositivos, 'dispositivos conectados', `<small>${c.destacados} títulos destacados</small>`)}
@@ -723,7 +725,7 @@ async function verUsuarios() {
       <span class="texto-2">${lista.length} ${lista.length === 1 ? 'cuenta' : 'cuentas'}</span>
       <input class="entrada" id="buscar-usuario" placeholder="Buscar por nombre o correo…" style="max-width:280px" />
     </div>
-    <p class="texto-2" style="margin:-8px 0 20px">Cualquiera puede crear una cuenta en la web o en la app. Cada cuenta guarda en privado su lista, lo que está viendo y sus plataformas elegidas. Las contraseñas se guardan cifradas y no se pueden ver: si alguien la olvida, pulsa «Nueva contraseña» y pásale la provisional.</p>
+    <p class="texto-2" style="margin:-8px 0 20px">Cualquiera puede crear una cuenta en la web o en la app. Cada cuenta guarda en privado su lista y lo que está viendo. Las contraseñas se guardan cifradas y no se pueden ver: si alguien la olvida, pulsa «Nueva contraseña» y pásale la provisional.</p>
     ${lista.length ? `
       <div class="caja tabla-scroll">
         <table class="tabla">
