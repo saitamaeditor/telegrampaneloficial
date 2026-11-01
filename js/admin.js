@@ -536,14 +536,14 @@ async function verNotificaciones() {
     ${t.chatId ? `
     <div class="caja">
       <h2>3. Temas del grupo ${t.esForo ? '' : '<span class="texto-3" style="font-size:13px;font-weight:400">(solo si tu grupo tiene temas)</span>'}</h2>
-      <p class="texto-2" style="margin-bottom:12px">Elige en qué tema se publica cada sección. «General» es el tema principal del grupo.</p>
+      <p class="texto-2" style="margin-bottom:12px">Elige en qué tema se publica cada sección. «General» es el tema principal del grupo. Los documentales y docuseries son los títulos con el género «Documental»; si no les pones tema, van al de películas o series.</p>
       <div class="fila-form" id="temas">
-        <label class="campo"><span>🎬 Películas nuevas</span><select name="pelicula">${opcionesTema(t.temas.pelicula)}</select></label>
-        <label class="campo"><span>📺 Series nuevas</span><select name="serie">${opcionesTema(t.temas.serie)}</select></label>
+        ${Object.entries(t.secciones).map(([clave, s]) => `
+          <label class="campo"><span>${esc(s.tema)}</span><select name="${clave}">${opcionesTema(t.temas[clave])}</select></label>`).join('')}
       </div>
       <div class="fila-form" style="margin-top:12px">
         <button class="btn btn-secundario" id="buscar-temas">Buscar temas</button>
-        <button class="btn btn-secundario" id="crear-temas">Crear «🎬 Películas» y «📺 Series»</button>
+        <button class="btn btn-secundario" id="crear-temas">Crear los temas que faltan</button>
       </div>
       <p class="texto-3" style="margin-top:10px">Para que un tema aparezca en la lista, escribe un mensaje dentro de él y pulsa <b>Buscar temas</b>. Para crearlos automáticamente, el bot tiene que ser administrador con permiso para <b>gestionar temas</b>.</p>
     </div>` : ''}
@@ -610,7 +610,7 @@ async function verNotificaciones() {
     temas.onchange = (ev) => {
       const sel = ev.target;
       const tema = sel.value ? { id: sel.value, nombre: sel.selectedOptions[0].textContent } : null;
-      guardar({ temas: { [sel.name]: tema } }, `${sel.name === 'serie' ? 'Series' : 'Películas'} → ${tema?.nombre ?? 'General'}`);
+      guardar({ temas: { [sel.name]: tema } }, `${t.secciones[sel.name].nombre} → ${tema?.nombre ?? 'General'}`);
     };
     document.getElementById('buscar-temas').onclick = async (ev) => {
       ev.currentTarget.disabled = true;
@@ -624,11 +624,13 @@ async function verNotificaciones() {
       }
     };
     document.getElementById('crear-temas').onclick = async (ev) => {
-      if (!confirm('¿Crear los temas «🎬 Películas» y «📺 Series» en el grupo?')) return;
+      const faltan = Object.entries(t.secciones).filter(([clave]) => !t.temas[clave]).map(([, s]) => `«${s.tema}»`);
+      if (!faltan.length) return avisar('Todas las secciones ya tienen tema');
+      if (!confirm(`¿Crear en el grupo los temas ${faltan.join(', ')}?`)) return;
       ev.currentTarget.disabled = true;
       try {
         await api('/admin/telegram/temas', { metodo: 'POST' });
-        avisar('Temas creados: las películas y las series irán cada una a su tema');
+        avisar('Temas creados: cada sección irá a su tema');
         verNotificaciones();
       } catch (err) {
         avisar(err.message, true);

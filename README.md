@@ -25,7 +25,7 @@ En la sección **Notificaciones**:
 
 1. Crea un bot con **@BotFather** (`/newbot`) y pega su token.
 2. Añade el bot a tu grupo, escribe un mensaje allí y pulsa **Buscar grupos** → **Usar este**.
-3. Si el grupo tiene temas, elige el tema de **🎬 Películas** y el de **📺 Series**, o pulsa **Crear «🎬 Películas» y «📺 Series»** (el bot debe ser administrador con permiso para gestionar temas).
+3. Si el grupo tiene temas, elige el tema de **🎬 Películas**, **📺 Series**, **🎥 Documentales** y **🎞 Docuseries**, o pulsa **Crear los temas que faltan** (el bot debe ser administrador con permiso para gestionar temas).
 4. **Enviar mensaje de prueba** para comprobarlo.
 
 A partir de ahí, cada película o episodio nuevo que se pueda ver se publica en el grupo con su cartel y un botón «▶ Ver en MorvehTV».
