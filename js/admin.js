@@ -550,6 +550,10 @@ async function verNotificaciones() {
 
     <div class="caja">
       <h2>${t.chatId ? '4' : '3'}. Avisos</h2>
+      <form class="fila-form" id="form-downloader" style="margin-bottom:14px">
+        <label class="campo"><span>Código Downloader de la app (botón «📲 App · Código Downloader»; vacío = sin botón)</span><input name="downloader" inputmode="numeric" value="${esc(t.downloader ?? '')}" /></label>
+        <button class="btn btn-secundario">Guardar código</button>
+      </form>
       <label class="casilla" style="margin-bottom:14px"><input type="checkbox" id="activo" ${t.activo ? 'checked' : ''} ${t.configurado ? '' : 'disabled'} /> Avisar en Telegram de cada contenido nuevo</label>
       <div class="fila-form"><button class="btn btn-primario" id="prueba" ${t.configurado ? '' : 'disabled'}>Enviar mensaje de prueba</button></div>
       <h3 style="margin:18px 0 8px;font-size:15px">Últimos avisos</h3>
@@ -576,6 +580,11 @@ async function verNotificaciones() {
   document.getElementById('form-chat').onsubmit = (ev) => {
     ev.preventDefault();
     guardar({ chatId: new FormData(ev.currentTarget).get('chatId').trim(), chatNombre: null }, 'Grupo guardado');
+  };
+  document.getElementById('form-downloader').onsubmit = (ev) => {
+    ev.preventDefault();
+    const codigo = new FormData(ev.currentTarget).get('downloader').trim();
+    guardar({ downloader: codigo }, codigo ? `Botón de la app con el código ${codigo}` : 'Botón de la app quitado');
   };
   document.getElementById('activo').onchange = (ev) => guardar({ activo: ev.target.checked }, ev.target.checked ? 'Avisos activados' : 'Avisos en pausa');
   document.getElementById('buscar-grupos').onclick = async (ev) => {
