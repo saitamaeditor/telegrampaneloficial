@@ -505,7 +505,7 @@ async function verUsuarios() {
           <tbody>
             ${lista.sort((a, b) => (b.ultimo ?? b.creado).localeCompare(a.ultimo ?? a.creado)).map((u) => `
               <tr>
-                <td><b>${esc(u.nombre)}</b></td>
+                <td><b>${esc(u.nombre)}</b>${u.google ? ' <span class="pildora ok">Google</span>' : ''}</td>
                 <td>${esc(u.email)}</td>
                 <td class="min">${u.enLista}</td>
                 <td class="min">${u.vistos}</td>
