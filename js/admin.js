@@ -497,7 +497,7 @@ async function verUsuarios() {
       <h1>Usuarios</h1>
       <span class="texto-2">${lista.length} ${lista.length === 1 ? 'cuenta' : 'cuentas'}</span>
     </div>
-    <p class="texto-2" style="margin:-8px 0 20px">Cualquiera puede crear una cuenta en la web o en la app. Cada cuenta guarda en privado su lista, lo que está viendo y sus plataformas elegidas. Las contraseñas se guardan cifradas y no se pueden ver.</p>
+    <p class="texto-2" style="margin:-8px 0 20px">Cualquiera puede crear una cuenta en la web o en la app. Cada cuenta guarda en privado su lista, lo que está viendo y sus plataformas elegidas. Las contraseñas se guardan cifradas y no se pueden ver: si alguien la olvida, pulsa «Nueva contraseña» y pásale la provisional.</p>
     ${lista.length ? `
       <div class="caja tabla-scroll">
         <table class="tabla">
@@ -505,19 +505,34 @@ async function verUsuarios() {
           <tbody>
             ${lista.sort((a, b) => (b.ultimo ?? b.creado).localeCompare(a.ultimo ?? a.creado)).map((u) => `
               <tr>
-                <td><b>${esc(u.nombre)}</b>${u.google ? ' <span class="pildora ok">Google</span>' : ''}</td>
+                <td><b>${esc(u.nombre)}</b></td>
                 <td>${esc(u.email)}</td>
                 <td class="min">${u.enLista}</td>
                 <td class="min">${u.vistos}</td>
                 <td class="min texto-3">${fecha(u.creado)}</td>
                 <td class="min texto-3">${fecha(u.ultimo)}</td>
-                <td class="min"><button class="btn btn-peligro btn-chico" data-borrar="${esc(u.id)}" data-email="${esc(u.email)}">Borrar</button></td>
+                <td class="min">
+                  <button class="btn btn-secundario btn-chico" data-restablecer="${esc(u.id)}" data-email="${esc(u.email)}">Nueva contraseña</button>
+                  <button class="btn btn-peligro btn-chico" data-borrar="${esc(u.id)}" data-email="${esc(u.email)}">Borrar</button>
+                </td>
               </tr>`).join('')}
           </tbody>
         </table>
       </div>` : '<div class="vacio"><h2>Todavía no hay usuarios</h2><p>Las cuentas aparecerán aquí en cuanto alguien se registre.</p></div>'}`;
 
   contenido.querySelector('tbody')?.addEventListener('click', async (ev) => {
+    // Para quien ha olvidado su contraseña: se le pone una provisional para que entre y la cambie
+    const r = ev.target.closest('[data-restablecer]');
+    if (r) {
+      if (!confirm(`¿Dar una contraseña nueva a ${r.dataset.email}? La actual dejará de funcionar.`)) return;
+      try {
+        const { provisional } = await api(`/admin/usuarios/${r.dataset.restablecer}/contrasena`, { metodo: 'POST' });
+        prompt(`Contraseña provisional de ${r.dataset.email}. Pásasela y dile que la cambie en «Mi cuenta»:`, provisional);
+      } catch (err) {
+        avisar(err.message, true);
+      }
+      return;
+    }
     const b = ev.target.closest('[data-borrar]');
     if (!b || !confirm(`¿Borrar la cuenta ${b.dataset.email}? Perderá su lista y su progreso.`)) return;
     try {
