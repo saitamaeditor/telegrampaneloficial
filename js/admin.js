@@ -501,12 +501,13 @@ async function verUsuarios() {
     ${lista.length ? `
       <div class="caja tabla-scroll">
         <table class="tabla">
-          <thead><tr><th>Nombre</th><th>Correo</th><th>En su lista</th><th>Vistos</th><th>Alta</th><th>Última vez</th><th class="min"></th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Correo</th><th>Dispositivos</th><th>En su lista</th><th>Vistos</th><th>Alta</th><th>Última vez</th><th class="min"></th></tr></thead>
           <tbody>
             ${lista.sort((a, b) => (b.ultimo ?? b.creado).localeCompare(a.ultimo ?? a.creado)).map((u) => `
               <tr>
                 <td><b>${esc(u.nombre)}</b></td>
                 <td>${esc(u.email)}</td>
+                <td class="min">${u.dispositivos ?? 0}</td>
                 <td class="min">${u.enLista}</td>
                 <td class="min">${u.vistos}</td>
                 <td class="min texto-3">${fecha(u.creado)}</td>
