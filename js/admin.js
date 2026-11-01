@@ -190,6 +190,7 @@ async function verCatalogo() {
                   <button class="btn btn-primario btn-chico" data-accion="videos">Vídeos</button>
                   <button class="btn btn-secundario btn-chico" data-accion="editar">Editar</button>
                   ${t.tmdbId ? '<button class="btn btn-secundario btn-chico" data-accion="refrescar">TMDB</button>' : ''}
+                  <button class="btn btn-secundario btn-chico" data-accion="telegram" title="Volver a publicar el aviso en Telegram">Telegram</button>
                   <button class="btn btn-peligro btn-chico" data-accion="borrar">Borrar</button>
                 </td>
               </tr>`).join('')}
@@ -236,6 +237,13 @@ async function verCatalogo() {
       b.disabled = true;
       try { await api(`/admin/titulos/${id}/refrescar`, { metodo: 'POST' }); avisar('Datos actualizados desde TMDB'); verCatalogo(); }
       catch (err) { avisar(err.message, true); b.disabled = false; }
+    }
+    if (b.dataset.accion === 'telegram') {
+      if (!confirm(`¿Publicar de nuevo en Telegram el aviso de «${t.titulo}»?`)) return;
+      b.disabled = true;
+      try { await api(`/admin/telegram/avisar/${id}`, { metodo: 'POST' }); avisar('Aviso enviado a Telegram'); }
+      catch (err) { avisar(err.message, true); }
+      b.disabled = false;
     }
     if (b.dataset.accion === 'borrar') {
       if (!confirm(`¿Borrar «${t.titulo}» del catálogo?`)) return;
