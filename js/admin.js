@@ -312,7 +312,10 @@ async function verCatalogo() {
     }
     if (b.dataset.accion === 'borrar') {
       if (!confirm(`¿Borrar «${t.titulo}» del catálogo?`)) return;
-      const tambien = confirm('¿Borrar también sus vídeos de IDrive e2? (Aceptar = sí, Cancelar = conservarlos en el bucket)');
+      const tambien = confirm(`¿Borrar también sus vídeos de IDrive e2 (el original y la copia cifrada)?
+
+Aceptar = sí, se borran para siempre.
+Cancelar = se conservan en el bucket, pero el importador volverá a añadir el título en unos minutos.`);
       try { await api(`/admin/titulos/${id}${tambien ? '?borrarVideos=1' : ''}`, { metodo: 'DELETE' }); avisar('Título borrado'); verCatalogo(); }
       catch (err) { avisar(err.message, true); }
     }
