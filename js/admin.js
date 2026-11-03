@@ -165,8 +165,8 @@ function estadoVideos(t) {
 }
 
 // Las seis categorías del catálogo (salen del tipo y de los géneros «Documental» y «Anime»)
-const CATEGORIAS = { pelicula: 'Película', serie: 'Serie', documental: 'Documental', docuserie: 'Docuserie', 'anime-pelicula': 'Película anime', 'anime-serie': 'Serie anime', programa: 'Programa de TV', 'novela-turca': 'Novela turca' };
-const CATEGORIAS_PLURAL = { pelicula: 'Películas', serie: 'Series', documental: 'Documentales', docuserie: 'Docuseries', 'anime-pelicula': 'Películas anime', 'anime-serie': 'Series anime', programa: 'Programas de TV', 'novela-turca': 'Novelas turcas' };
+const CATEGORIAS = { pelicula: 'Película', serie: 'Serie', documental: 'Documental', docuserie: 'Docuserie', 'anime-pelicula': 'Película anime', 'anime-serie': 'Serie anime', programa: 'Programa de TV', 'novela-turca': 'Novela turca', deporte: 'Deporte' };
+const CATEGORIAS_PLURAL = { pelicula: 'Películas', serie: 'Series', documental: 'Documentales', docuserie: 'Docuseries', 'anime-pelicula': 'Películas anime', 'anime-serie': 'Series anime', programa: 'Programas de TV', 'novela-turca': 'Novelas turcas', deporte: 'Deportes' };
 
 async function verCatalogo() {
   const lista = await api('/admin/titulos');
@@ -461,7 +461,7 @@ function dialogoEditar(t) {
       <label class="campo"><span>URL de la imagen de fondo</span><input name="fondo" value="${esc(t.fondo ?? '')}" /></label>
       <label class="campo"><span>Categoría (dónde sale en la web y la app)</span>
         <select name="categoria">
-          ${(t.tipo === 'serie' ? ['serie', 'docuserie', 'anime-serie', 'programa', 'novela-turca'] : ['pelicula', 'documental', 'anime-pelicula'])
+          ${(t.tipo === 'serie' ? ['serie', 'docuserie', 'anime-serie', 'programa', 'novela-turca'] : ['pelicula', 'documental', 'anime-pelicula', 'deporte'])
             .map((k) => `<option value="${k}" ${t.categoria === k ? 'selected' : ''}>${CATEGORIAS_PLURAL[k]}</option>`).join('')}
         </select>
       </label>
@@ -471,8 +471,8 @@ function dialogoEditar(t) {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.currentTarget));
     // La categoría se guarda como género: «Documental» o «Anime» al principio, o ninguno
-    const generos = f.generos.split(',').map((g) => g.trim()).filter((g) => g && !/^(documental|documentary|anime|programa de tv|novela turca)$/i.test(g));
-    const extra = { documental: 'Documental', docuserie: 'Documental', 'anime-pelicula': 'Anime', 'anime-serie': 'Anime', programa: 'Programa de TV', 'novela-turca': 'Novela turca' }[f.categoria];
+    const generos = f.generos.split(',').map((g) => g.trim()).filter((g) => g && !/^(documental|documentary|anime|programa de tv|novela turca|deportes)$/i.test(g));
+    const extra = { documental: 'Documental', docuserie: 'Documental', 'anime-pelicula': 'Anime', 'anime-serie': 'Anime', programa: 'Programa de TV', 'novela-turca': 'Novela turca', deporte: 'Deportes' }[f.categoria];
     f.generos = extra ? [extra, ...generos] : generos;
     delete f.categoria;
     try { await api(`/admin/titulos/${t.id}`, { metodo: 'PATCH', cuerpo: f }); avisar('Guardado'); dialogo.close(); }
